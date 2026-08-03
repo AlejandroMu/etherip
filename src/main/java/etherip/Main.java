@@ -7,6 +7,8 @@
  *******************************************************************************/
 package etherip;
 
+import java.util.Arrays;
+import java.util.Scanner;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -22,10 +24,11 @@ import etherip.types.CIPData.Type;
  * @author Kay Kasemir
  */
 public class Main {
-    private static String address = "127.0.0.1";
+    private static String address = "192.168.185.2";
     private static int slot = 0;
     private static short array = 1;
     private static String tag = "";
+    private static String type = null;
     private static CIPData write = null;
 
     private static void usage() {
@@ -34,6 +37,7 @@ public class Main {
         System.out.println("Options:");
         System.out.println("-h             help");
         System.out.println("-v             verbose");
+        System.out.println("-t   type ( D, B)");
         System.out.println("-i " + address + "   IP address or DNS name of PLC");
         System.out.println("-s " + slot + "           Controller slot in ControlLogix crate");
         System.out.println("-a " + array + "           Number of array elements to read, 1 for scalar");
@@ -44,91 +48,104 @@ public class Main {
     }
 
     public static void main(String[] args) throws Exception {
-        args = new String[] { "-i", "192.168.185.6", "SAL_RTD_TE106" };
-        for (int i = 0; i < args.length; ++i) {
-            if ("-h".equals(args[i])) {
-                usage();
-                return;
-            } else if ("-v".equals(args[i])) {
-                final Logger root = Logger.getLogger("");
-                root.setLevel(Level.ALL);
-                for (Handler handler : root.getHandlers())
-                    handler.setLevel(root.getLevel());
-            } else if ("-i".equals(args[i])) {
-                if (i + 1 < args.length)
-                    address = args[++i];
+        args = new String[] { "-w","30.0","-t","D","-i", "192.168.185.6", "TEMPE_TE101" };
+        System.out.println("EtherIP " + Arrays.toString(args));
+        type = "B"; // Default type
+        Scanner scanner = new Scanner(System.in);
+        do{
+            System.out.println("Enter the command: ");
+            args = scanner.nextLine().split(" ");
+            for (int i = 0; i < args.length; ++i) {
+                if ("-h".equals(args[i])) {
+                    usage();
+                    return;
+                } else if ("-v".equals(args[i])) {
+                    final Logger root = Logger.getLogger("");
+                    root.setLevel(Level.ALL);
+                    for (Handler handler : root.getHandlers())
+                        handler.setLevel(root.getLevel());
+                } else if ("-i".equals(args[i])) {
+                    if (i + 1 < args.length)
+                        address = args[++i];
+                    else {
+                        System.out.println("Missing address for -i");
+                        usage();
+                        return;
+                    }
+                    
+                }  else if ("-t".equals(args[i])) {
+                    if (i + 1 < args.length)
+                        type = args[++i];
+                    else {
+                        System.out.println("Missing type for -t");
+                        usage();
+                        return;
+                    }
+                } else if ("-s".equals(args[i])) {
+                    if (i + 1 < args.length)
+                        slot = Integer.parseInt(args[++i]);
+                    else {
+                        System.out.println("Missing slot for -s");
+                        usage();
+                        return;
+                    }
+                } else if ("-a".equals(args[i])) {
+                    if (i + 1 < args.length)
+                        array = Short.parseShort(args[++i]);
+                    else {
+                        System.out.println("Missing array count for -a");
+                        usage();
+                        return;
+                    }
+                } else if ("-w".equals(args[i])) {
+                    if (i + 1 < args.length) {
+                        if(type.equals("D")) {
+                            write = new CIPData(Type.REAL, 1);
+                        } else if(type.equals("B")) {
+                            write = new CIPData(Type.BOOL, 1);
+                        }
+                        write.set(0, Double.parseDouble(args[++i]));
+                    } else {
+                        System.out.println("Missing number to write for -w");
+                        usage();
+                    }
+                } else if (args[i].startsWith("-")) {
+                    System.out.println("Unknown option '" + args[i] + "'");
+                    usage();
+                } else if (tag.isEmpty())
+                    tag = args[i].trim();
                 else {
-                    System.out.println("Missing address for -i");
+                    System.out.println("Can only handle one tag");
                     usage();
-                    return;
                 }
-            } else if ("-s".equals(args[i])) {
-                if (i + 1 < args.length)
-                    slot = Integer.parseInt(args[++i]);
-                else {
-                    System.out.println("Missing slot for -s");
-                    usage();
-                    return;
-                }
-            } else if ("-a".equals(args[i])) {
-                if (i + 1 < args.length)
-                    array = Short.parseShort(args[++i]);
-                else {
-                    System.out.println("Missing array count for -a");
-                    usage();
-                    return;
-                }
-            } else if ("-w".equals(args[i])) {
-                if (i + 1 < args.length) {
-                    write = new CIPData(Type.REAL, 1);
-                    write.set(0, Double.parseDouble(args[++i]));
-                } else {
-                    System.out.println("Missing number to write for -w");
-                    usage();
-                    return;
-                }
-            } else if (args[i].startsWith("-")) {
-                System.out.println("Unknown option '" + args[i] + "'");
+            }
+        
+            if (tag.isEmpty()) {
+                System.out.println("Missing <tag>");
                 usage();
-                return;
-            } else if (tag.isEmpty())
-                tag = args[i].trim();
-            else {
-                System.out.println("Can only handle one tag");
-                usage();
-                return;
+                continue;
             }
-        }
-
-        if (tag.isEmpty()) {
-            System.out.println("Missing <tag>");
-            usage();
-            return;
-        }
-
-        try (final EtherNetIP plc = new EtherNetIP(address, slot)) {
-            plc.connectTcp();
-            Identity[] inde = plc.listIdentity();
-            System.out.println("--------identity-----------");
-            for (Identity itemIdentity : inde) {
-                System.out.println(itemIdentity.toString());
+        
+            try {
+                EtherNetIP plc = new EtherNetIP(address, slot);
+                plc.connectTcp();
+                
+                if (write != null) { // Write
+                    plc.writeTag(tag, write);
+                } else if ("IDENTITY".equals(tag)) { // Read standard set of attributes
+                    System.out.println(plc.getIdentity());
+                } else { // Read tag
+                    final CIPData data = plc.readTag(tag, array);
+                    System.out.println(data);
+                }
+                Thread.sleep(2000);
+                plc.close();
+            } catch (Exception ex) {
+                ex.printStackTrace();
             }
-            System.out.println("-----------services----------");
-            Service[] services = plc.listServices();
-            for (Service service : services) {
-                System.out.println(service.toString());
-            }
-
-            System.out.println(plc.getSlotIdentity(0));
-
-            if (write != null) { // Write
-                plc.writeTag(tag, write);
-            } else if ("IDENTITY".equals(tag)) { // Read standard set of attributes
-                System.out.println(plc.getIdentity());
-            } else { // Read tag
-                final CIPData data = plc.readTag(tag, array);
-                System.out.println(data);
-            }
-        }
+            tag = "";
+            write = null;
+            System.out.println();
+        }while (true);            
     }
 }

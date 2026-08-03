@@ -26,7 +26,7 @@ import etherip.util.Hexdump;
  */
 public class TcpConnection extends Connection
 {
-    private final AsynchronousSocketChannel channel;
+    private AsynchronousSocketChannel channel;
 
     /**
      * Initialize
@@ -42,8 +42,13 @@ public class TcpConnection extends Connection
         super(address, slot);
 
         this.channel = AsynchronousSocketChannel.open();
-        this.channel.connect(new InetSocketAddress(address, this.port))
-                .get(this.timeout_ms, MILLISECONDS);
+        try {
+            this.channel.connect(new InetSocketAddress(address, this.port))
+                    .get(this.timeout_ms, MILLISECONDS);
+        } catch (TimeoutException e) {
+            this.channel.close(); // El canal se cierra si hay timeout
+            throw e;
+        }
     }
 
     /**
@@ -137,6 +142,8 @@ public class TcpConnection extends Connection
     @Override
     public void close() throws Exception
     {
+        if(this.channel == null || !this.channel.isOpen())
+            return; // Already closed
         this.channel.close();
     }
 
