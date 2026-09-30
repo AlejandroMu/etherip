@@ -61,7 +61,10 @@ public class CNClassPath extends CNPath
     	if (shortClassId()) {
     		size += 2;
     	}
-    	if (shortInstanceId()) {
+    	if (intInstanceId()) {
+    		size += 4;
+    	}
+    	else if (shortInstanceId()) {
     		size += 2;
     	}
     	if (hasAttribute()) {
@@ -88,7 +91,11 @@ public class CNClassPath extends CNPath
         }
         
         buf.put((byte) instanceSegmentType());
-        if (shortInstanceId()) {
+        if (intInstanceId()) {
+        	buf.put((byte) 0); // Padding
+        	buf.putInt(this.instance);
+        }
+        else if (shortInstanceId()) {
         	buf.put((byte) 0); // Padding
         	buf.putShort((short) this.instance);
         }
@@ -121,6 +128,9 @@ public class CNClassPath extends CNPath
 	}
 
     private byte instanceSegmentType() {
+    	if (intInstanceId()) {
+    		return 0x26;
+    	}
     	if (shortInstanceId()) {
     		return 0x25;
     	}
@@ -128,7 +138,11 @@ public class CNClassPath extends CNPath
     }
 
 	private boolean shortInstanceId() {
-		return this.instance > 0xFF;
+		return this.instance > 0xFF && this.instance <= 0xFFFF;
+	}
+
+	private boolean intInstanceId() {
+		return this.instance > 0xFFFF;
 	}
 
     private boolean hasAttribute() {

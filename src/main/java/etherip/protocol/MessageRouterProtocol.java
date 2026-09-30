@@ -162,6 +162,10 @@ public class MessageRouterProtocol extends ProtocolAdapter
     	return partialTransfert;
     }
 
+    public boolean isPartialTransfer() {
+    	return partialTransfert;
+    }
+
     /** @return Status code of response */
     public int getStatus()
     {

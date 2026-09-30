@@ -24,6 +24,7 @@ import etherip.data.ConnectionData;
 import etherip.data.EthernetLink;
 import etherip.data.Identity;
 import etherip.data.InterfaceConfiguration;
+import etherip.data.TagInfo;
 import etherip.data.TcpIpInterface;
 import etherip.protocol.CIPMultiRequestProtocol;
 import etherip.protocol.Connection;
@@ -33,6 +34,7 @@ import etherip.protocol.GetConnectionDataProtocol;
 import etherip.protocol.GetEthernetLinkProtocol;
 import etherip.protocol.GetHexStringDataProtocol;
 import etherip.protocol.GetIdentityProtocol;
+import etherip.protocol.GetInstanceAttributeListProtocol;
 import etherip.protocol.GetIntAttributeProtocol;
 import etherip.protocol.GetInterfaceConfigurationProtocol;
 import etherip.protocol.GetPhysicalLinkObjectProtocol;
@@ -633,6 +635,95 @@ public class EtherNetIP implements AutoCloseable
                 .append(Integer.toHexString(this.connection.getSession()))
                 .append("\n");
         return buf.toString();
+    }
+
+    /**
+     * Retrieve the catalog of tags from the PLC at the configured slot
+     * (excluding internal system tags).
+     *
+     * @return List of {@link TagInfo}
+     * @throws Exception on communication or protocol error
+     */
+    public List<TagInfo> getTagList() throws Exception
+    {
+        return getTagList(this.slot, false);
+    }
+
+    /**
+     * Retrieve the catalog of tags from the PLC at the specified slot
+     * (excluding internal system tags).
+     *
+     * @param slot Controller slot (or &lt; 0 for direct connection)
+     * @return List of {@link TagInfo}
+     * @throws Exception on communication or protocol error
+     */
+    public List<TagInfo> getTagList(final int slot) throws Exception
+    {
+        return getTagList(slot, false);
+    }
+
+    /**
+     * Retrieve the catalog of tags from the PLC.
+     *
+     * @param slot Controller slot (or &lt; 0 for direct connection)
+     * @param includeSystemTags true to include internal controller system tags
+     * @return List of {@link TagInfo}
+     * @throws Exception on communication or protocol error
+     */
+    public List<TagInfo> getTagList(final int slot, final boolean includeSystemTags) throws Exception
+    {
+        final List<TagInfo> allTags = new ArrayList<>();
+        long startInstance = 0;
+        boolean hasMore = true;
+
+        while (hasMore)
+        {
+            final GetInstanceAttributeListProtocol attr_proto = new GetInstanceAttributeListProtocol();
+            final MessageRouterProtocol mr = new MessageRouterProtocol(
+                    CNService.Get_Instance_Attribute_List,
+                    CNPath.SymbolList().instance((int) startInstance),
+                    attr_proto);
+
+            final Encapsulation encap;
+            if (slot >= 0)
+            {
+                encap = new Encapsulation(SendRRData, this.connection.getSession(),
+                        new SendRRDataProtocol(
+                                new UnconnectedSendProtocol(slot, mr)));
+            }
+            else
+            {
+                encap = new Encapsulation(SendRRData, this.connection.getSession(),
+                        new SendRRDataProtocol(mr));
+            }
+
+            this.connection.execute(encap);
+
+            final List<TagInfo> batch = attr_proto.getTags();
+            if (batch.isEmpty())
+            {
+                break;
+            }
+
+            for (final TagInfo tag : batch)
+            {
+                if (includeSystemTags || !tag.isSystemTag())
+                {
+                    allTags.add(tag);
+                }
+            }
+
+            if (mr.isPartialTransfer())
+            {
+                startInstance = attr_proto.getLastInstanceId() + 1;
+            }
+            else
+            {
+                hasMore = false;
+            }
+        }
+
+        return allTags;
     }
 
     public Connection getConnection() {

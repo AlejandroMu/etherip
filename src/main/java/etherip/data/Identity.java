@@ -126,14 +126,140 @@ public class Identity
         this.productName = productName;
     }
 
+    public int getStatusValue()
+    {
+        if (this.status == null || this.status.isEmpty())
+        {
+            return 0;
+        }
+        try
+        {
+            String s = this.status.trim();
+            if (s.startsWith("0x") || s.startsWith("0X"))
+            {
+                s = s.substring(2);
+            }
+            return Integer.parseInt(s, 16);
+        }
+        catch (final NumberFormatException ex)
+        {
+            return 0;
+        }
+    }
+
+    public int getExtendedDeviceStatus()
+    {
+        return (getStatusValue() >> 4) & 0x0F;
+    }
+
+    public boolean isRunMode()
+    {
+        return getExtendedDeviceStatus() == 0x06;
+    }
+
+    public boolean isProgramMode()
+    {
+        return getExtendedDeviceStatus() == 0x07;
+    }
+
+    public boolean isFaulted()
+    {
+        final int ext = getExtendedDeviceStatus();
+        return ext == 0x05 || hasMajorRecoverableFault() || hasMajorUnrecoverableFault();
+    }
+
+    public boolean hasMinorRecoverableFault()
+    {
+        return (getStatusValue() & (1 << 8)) != 0;
+    }
+
+    public boolean hasMinorUnrecoverableFault()
+    {
+        return (getStatusValue() & (1 << 9)) != 0;
+    }
+
+    public boolean hasMajorRecoverableFault()
+    {
+        return (getStatusValue() & (1 << 10)) != 0;
+    }
+
+    public boolean hasMajorUnrecoverableFault()
+    {
+        return (getStatusValue() & (1 << 11)) != 0;
+    }
+
+    public String getOperatingMode()
+    {
+        if (isFaulted())
+        {
+            return "FAULTED";
+        }
+        final int ext = getExtendedDeviceStatus();
+        switch (ext)
+        {
+            case 0x06:
+                return "RUN";
+            case 0x07:
+                return "PROGRAM";
+            case 0x01:
+                return "FIRMWARE_UPDATE";
+            case 0x02:
+                return "IO_FAULT";
+            case 0x03:
+                return "NO_IO_CONNECTIONS";
+            case 0x04:
+                return "CONFIG_FAULT";
+            case 0x05:
+                return "MAJOR_FAULT";
+            default:
+                return "UNKNOWN (0x" + Integer.toHexString(ext) + ")";
+        }
+    }
+
+    public String getVendorName()
+    {
+        if (this.vendorId == null)
+        {
+            return "Unknown";
+        }
+        if (this.vendorId == 1)
+        {
+            return "Rockwell Automation/Allen-Bradley";
+        }
+        return "Vendor (" + this.vendorId + ")";
+    }
+
+    public String getDeviceTypeName()
+    {
+        if (this.deviceType == null)
+        {
+            return "Unknown";
+        }
+        switch (this.deviceType)
+        {
+            case 0x0E:
+                return "Programmable Logic Controller";
+            case 0x02:
+                return "AC Drive";
+            case 0x0C:
+                return "Communications Adapter";
+            case 0x18:
+                return "Human-Machine Interface";
+            case 0x2C:
+                return "Managed Switch";
+            default:
+                return "Device Type (" + this.deviceType + ")";
+        }
+    }
+
     @Override
     public String toString()
     {
-        return "Identity [vendorId=" + this.vendorId + ", deviceType="
-                + this.deviceType + ", productCode=" + this.productCode
+        return "Identity [vendor=" + getVendorName() + " (id=" + this.vendorId + "), deviceType="
+                + getDeviceTypeName() + " (code=" + this.deviceType + "), productCode=" + this.productCode
                 + ", revision=" + Arrays.toString(this.revision)
                 + ", productName=" + this.productName + ", serialNumber="
-                + this.serialNumber + ", status=" + this.status + "]";
+                + this.serialNumber + ", status=" + this.status + " (" + getOperatingMode() + ")]";
     }
 
 }
