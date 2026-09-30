@@ -40,6 +40,7 @@ public class SendRRDataTest
                 CNService.Get_Attribute_Single, Identity().attr(7),
                 new ProtocolAdapter());
         final SendRRDataProtocol rr_data = new SendRRDataProtocol(pdu);
+        Transaction.reset(0);
         final Encapsulation encap = new Encapsulation(Command.SendRRData,
                 0x12027100, rr_data);
         final StringBuilder log = new StringBuilder();

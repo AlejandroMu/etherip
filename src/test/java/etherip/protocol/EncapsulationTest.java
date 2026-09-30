@@ -44,6 +44,7 @@ public class EncapsulationTest
         final ByteBuffer send = ByteBuffer.allocate(100);
         send.order(Connection.BYTE_ORDER);
 
+        Transaction.reset(13);
         final Encapsulation encap = new Encapsulation(
                 Encapsulation.Command.ListInterfaces, 0, new ProtocolAdapter()
                 {

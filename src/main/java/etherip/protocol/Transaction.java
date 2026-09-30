@@ -37,6 +37,14 @@ public class Transaction
         }
     }
 
+    static void reset(final long value)
+    {
+        synchronized(Transaction.class)
+        {
+            transaction = value;
+        }
+    }
+
     static byte[] format(final long transaction)
     {
         return String.format("%08X", transaction).getBytes();

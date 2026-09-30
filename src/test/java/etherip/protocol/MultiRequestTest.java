@@ -41,6 +41,7 @@ public class MultiRequestTest
         final MRChipReadProtocol cip_read1 = new MRChipReadProtocol("kay_ai");
         final MRChipReadProtocol cip_read2 = new MRChipReadProtocol("kay_ao");
 
+        Transaction.reset(12);
         final Encapsulation encap = new Encapsulation(SendRRData, session,
                 new SendRRDataProtocol(new UnconnectedSendProtocol(0,
                         new MessageRouterProtocol(CNService.CIP_MultiRequest,
